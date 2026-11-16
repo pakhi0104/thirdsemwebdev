@@ -1,40 +1,116 @@
- const express = require ('express')
- const fs = require('fs')
+ import express from "express";
+import fs from "fs";
 
-// const data=fs.readFileSync("index.html" , "utf-8" );
-
-// const app=express()
-// console.log(app)
-// app.get("/home" , (req ,res)=>{
-//     //res.send("welcome from express")
-//     res.end(data);
-
-// })
-// const PORT=3000;
-// app.listen(PORT,()=>{
-//     console.log("Server is running on port 3000");
-// })
-
-
-const app=express()
-const bookData =fs.readFileSync("./books.json", "utf8")
-app.get("/",(req,res)=>{
-    try{
-    res.status(200).json({
-        status : "Success",
-        data :{
-            book:bookData
-        },
-        count: bookData.length()
+const app = express();
+app.use(express.json());
+app.use((req, res, next) => {
+  console.log("Hello from the middleware 👋");
+  next();
 })
-}catch(error){
-  res.status(400).json({
-    status:400,
-    message:"Data not found" 
-  })
+function ValidateEmail(req, res, next) {
+  console.log("Email Validation Done");
+  next()
 }
+// app.route
+// express.Router()
+const bookData = JSON.parse(fs.readFileSync("./data/books.json", "utf-8"));
+const count = bookData.length;
+
+app.get("/api/v1/books", (req, res) => {
+  try {
+    res.status(200).json({
+      status: "success",
+      count: count,
+      data: {
+        book: bookData,
+      },
+    });
+  } catch (error) {
+    res.status(404).json({
+      status: "fail",
+      message: "data not found",
+    });
+  }
+});
+
+app.get("/api/v1/books/:id", (req, res) => {
+  // 1) linear search
+  // for(let i = 0; i < bookData.length; i++) {
+  //     if(bookData[i].id == id) {
+  //         res.status(200).json({
+  //             status: "success",
+  //             data: {
+  //                 book: bookData[i]
+  //             }
+  //         })
+  //     }
+  // }
+  // 2) function
+  try {
+    let id = req.params.id;
+    const book = bookData.find((book) => book.id === id);
+    if (!book) {
+      res.status(404).json({
+        status: "fail",
+        message: "book not found for this id",
+      });
+    } else {
+      res.status(200).json({
+        status: "success",
+        data: {
+          book: book,
+        },
+      });
+    }
+  } catch (error) {
+    res.status(404).json({
+      status: "fail",
+      message: "data not found",
+    });
+  }
+});
+
+app.post("/api/v1/books", ValidateEmail, (req, res) => {
+  bookData.push(req.body);
+  fs.writeFileSync("./data/books.json", JSON.stringify(bookData));
+  res.status(201).json({
+    status: "success",
+    data: {
+      book: req.body,
+    },
+  });
+});
+
+app.patch("/api/v1/books/:id", (req, res) => {
+  let { id } = req.params; // object destructing
+  const bookToUpdate = bookData.find((book) => book.id === id);
+  let index = bookData.indexOf(bookToUpdate);
+  const updateBook = Object.assign(bookToUpdate, req.body);
+  fs.writeFileSync("./data/books.json", JSON.stringify(bookData));
+  bookData[index] = updateBook;
+  res.status(200).json({
+    status: "success",
+    data: {
+      book: updateBook,
+      message: "book updated successfully",
+    },
+  });
+});
+
+app.delete("/api/v1/books/:id", (req, res) => {
+  const deleteBook = bookData.find((book) => book.id === req.params.id);
+  const books = bookData.filter((book) => book.id !== req.params.id);
+  fs.writeFileSync("./data/books.json", JSON.stringify(books));
+  res.status(200).json({
+    status: "success",
+    data: {
+      book: deleteBook,
+      message: "book deleted successfully",
+    },
+  });
 })
 
-app.listen(3000,()=>{
-    console.log("Server is running.....")
-})
+const PORT = 3000;
+app.listen(PORT, () => {
+  console.log("Server is running ...");
+});
